@@ -1,0 +1,33 @@
+# Entornos virtuales
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+
+# Jupyter / Colab
+.ipynb_checkpoints/
+
+# Modelos entrenados y checkpoints (pesados, no van al repo)
+*.pt
+*.pth
+*.bin
+*.safetensors
+checkpoints/
+lora_weights/
+
+# Datos crudos originales de BC3 (no redistribuir XML crudo en el repo)
+data/raw/
+
+# Credenciales / API keys — NUNCA subir esto
+.env
+*api_key*
+secrets.json
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

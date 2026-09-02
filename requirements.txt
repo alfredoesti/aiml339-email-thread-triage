@@ -1,0 +1,17 @@
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+
+# Para la Tarea 3 (BERT + LoRA) — se activará cuando empecemos esa parte
+# transformers>=4.40
+# peft>=0.10
+# torch>=2.2
+
+# Para la Tarea 5-7 (resumen LLM + evaluación ROUGE) — pendiente
+# openai>=1.0
+# rouge-score>=0.1.2
+
+# Para la Tarea 8 (demo Gmail anonimizado) — pendiente
+# google-api-python-client
+# presidio-analyzer
+# presidio-anonymizer
