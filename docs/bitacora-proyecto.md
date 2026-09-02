@@ -76,7 +76,21 @@ posible ajuste fino si sobra tiempo, no es prioritario para el baseline.
 (predicciones de test por etiqueta, para comparar con BERT+LoRA en Tarea 3).
 
 ## 3. Clasificador: BERT + LoRA
-_Pendiente — capa de salida sigmoide+BCE por clase (multi-etiqueta), no softmax._
+**Estado:** Notebook escrito, pendiente de ejecución en Colab (2 sep 2026)
+
+**Qué se hizo:**
+- Notebook `notebooks/bc3_bert_lora.ipynb` diseñado y escrito completamente, listo para ejecutar en Google Colab con GPU.
+- El notebook tiene 5 bloques: configuración y carga de datos, tokenización y Dataset, modelo BERT+LoRA, bucle de entrenamiento, evaluación y guardado de predicciones.
+- La capa de salida usa `problem_type="multi_label_classification"` de HuggingFace, que aplica sigmoide + BCE loss por etiqueta de forma independiente — correcto para multi-etiqueta, sin softmax.
+- LoRA configurado con `r=8`, `lora_alpha=16`, `lora_dropout=0.1`, sobre las matrices `query` y `value` de las capas de atención de `bert-base-uncased`. Parámetros entrenables estimados: ~2% del total.
+- El bucle guarda el mejor checkpoint según Micro F1 en validación y lo restaura antes de la evaluación final, para evitar quedarse con un modelo sobreajustado.
+- Las predicciones de test se guardan en `bc3_bert_lora_test_predictions.csv` con el mismo esquema de columnas que el baseline, para comparación directa.
+
+**Dificultades / observaciones para el informe:**
+- El notebook está diseñado para Colab pero aún no se ha ejecutado — los resultados reales (Micro F1, Macro F1, Hamming loss en test) quedan pendientes de la ejecución. Hasta entonces no hay cifras que comparar con el baseline (Micro F1 0.56, Macro F1 0.41).
+- `DATA_PATH` en el Bloque 1 tiene un comentario explícito recordando ajustar la ruta cuando se ejecute en Colab (subir el CSV o montar Google Drive).
+
+**Pendiente inmediato:** ejecutar el notebook en Colab, anotar los resultados aquí, y compararlos con el baseline en la Tarea 4.
 
 ## 4. Evaluación del clasificador (BERT+LoRA vs baseline)
 _Pendiente_
