@@ -92,6 +92,25 @@ posible ajuste fino si sobra tiempo, no es prioritario para el baseline.
 
 **Pendiente inmediato:** ejecutar el notebook en Colab, anotar los resultados aquí, y compararlos con el baseline en la Tarea 4.
 
+**Ejecución en Colab y resultados finales (3 sep 2026):**
+
+- Notebook ejecutado en Google Colab con GPU T4.
+- Se detectaron y corrigieron dos problemas durante la ejecución: los nombres de las capas de LoRA no coincidían (`target_modules` ampliado a `["query", "key", "value", "dense"]`, subiendo los parámetros entrenables de 0.27% a 1.21%), y el desbalance de clases no estaba controlado (se añadió BCE con `pos_weight` por etiqueta calculado sobre train).
+- Se añadieron `torch.backends.cudnn.deterministic = True` y `torch.backends.cudnn.benchmark = False` para reducir la variabilidad entre ejecuciones.
+- Entrenamiento final: 5 épocas, mejor checkpoint en época 5 (val Micro F1: 0.684).
+
+**Resultados en test (37 emails):**
+- Micro F1: 0.637 | Macro F1: 0.525 | Hamming loss: 0.369
+- Por etiqueta: Subjective (0.84), Request (0.60), Meeting (0.59), Commit (0.60), Propose (0.51), Informative (0.00 — sin soporte en test).
+- BERT+LoRA supera al baseline TF-IDF en Micro F1 (0.637 vs 0.56) y Macro F1 (0.525 vs 0.41).
+
+**Dificultades / observaciones para el informe:**
+- Alta variabilidad entre ejecuciones (Micro F1 entre 0.56 y 0.64 en distintas ejecuciones con misma configuración) — limitación real del dataset pequeño (187 emails de train). Documentar como limitación en el informe.
+- El modelo tiende a recall alto y precisión más baja (sesgo de los pesos por clase), lo que significa que predice de más antes que de menos. Razonable para un dataset pequeño pero a mencionar en el análisis.
+- Informative sigue en F1 0.00 — no hay ningún caso en el set de test, igual que en el baseline. No es un fallo del modelo sino del split.
+
+**Guardado:** `notebooks/bc3_bert_lora.ipynb` (con outputs), `results/bc3_bert_lora_test_predictions.csv`.
+
 ## 4. Evaluación del clasificador (BERT+LoRA vs baseline)
 _Pendiente_
 
