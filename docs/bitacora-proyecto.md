@@ -112,7 +112,13 @@ posible ajuste fino si sobra tiempo, no es prioritario para el baseline.
 **Guardado:** `notebooks/bc3_bert_lora.ipynb` (con outputs), `results/bc3_bert_lora_test_predictions.csv`.
 
 ## 4. Evaluación del clasificador (BERT+LoRA vs baseline)
-_Pendiente_
+**Estado:** Completado (3 sep 2026)
+
+**Qué se hizo:**
+- Notebook `notebooks/bc3_comparison.ipynb` con tabla resumen de métricas globales, tabla por etiqueta con delta, gráfico de barras comparativo e interpretación escrita.
+- Gráfico guardado en `results/bc3_comparison_f1.png`.
+
+**Conclusión principal:** BERT+LoRA supera al baseline en Micro F1 (0.637 vs 0.560) y especialmente en Macro F1 (0.525 vs 0.410). La mejora es mayor en las etiquetas que requieren comprensión semántica (Propose +0.36, Commit +0.20, Request +0.19). Meeting es la única etiqueta donde el baseline gana ligeramente (0.64 vs 0.59), porque sus señales léxicas son muy claras. Informative queda en 0.00 en ambos modelos por ausencia de casos en test.
 
 ## 5. Resumen — Condición A (texto crudo)
 _Pendiente_
