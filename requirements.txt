@@ -7,9 +7,10 @@ scikit-learn>=1.3
 # peft>=0.10
 # torch>=2.2
 
-# Para la Tarea 5-7 (resumen LLM + evaluación ROUGE) — pendiente
-# openai>=1.0
-# rouge-score>=0.1.2
+# Para la Tarea 5-7 (resumen LLM + evaluación ROUGE)
+google-genai>=1.0
+python-dotenv>=1.0
+rouge-score>=0.1.2
 
 # Para la Tarea 8 (demo Gmail anonimizado) — pendiente
 # google-api-python-client

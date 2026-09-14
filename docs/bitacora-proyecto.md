@@ -121,10 +121,26 @@ posible ajuste fino si sobra tiempo, no es prioritario para el baseline.
 **Conclusión principal:** BERT+LoRA supera al baseline en Micro F1 (0.637 vs 0.560) y especialmente en Macro F1 (0.525 vs 0.410). La mejora es mayor en las etiquetas que requieren comprensión semántica (Propose +0.36, Commit +0.20, Request +0.19). Meeting es la única etiqueta donde el baseline gana ligeramente (0.64 vs 0.59), porque sus señales léxicas son muy claras. Informative queda en 0.00 en ambos modelos por ausencia de casos en test.
 
 ## 5. Resumen — Condición A (texto crudo)
-_Pendiente_
+**Estado:** Completado (14 sep 2026)
+
+**Qué se hizo:**
+- Script `src/bc3_summarize.py`: carga los 6 hilos de test, construye un prompt con el texto crudo de cada email (encabezado con From/Subject + cuerpo) y llama a Gemini 3.6 Flash para obtener un resumen de 150-200 palabras en prosa.
+- La instrucción de sistema es idéntica para ambas condiciones para que la única variable sea el contenido del prompt.
+- Resultados guardados en `results/bc3_summaries_condition_a.csv` (columnas: listno, thread_name, n_emails, summary_a).
+
+**Decisión de API:** se usó Gemini 3.6 Flash (google-genai, capa gratuita) en lugar de OpenAI, que era la opción original del plan. Razón: el autor ya tenía clave de Google AI Studio activa. El cambio no afecta la validez del experimento — lo que se evalúa es el efecto de añadir etiquetas al prompt, no el modelo en sí. Se documenta como decisión consciente.
+
+**Nota técnica:** `gemini-2.0-flash` fue deprecado durante el desarrollo; se migró a `gemini-3.6-flash`. La clave de API se carga desde un fichero `.env` en la raíz del repo (excluido de git vía `.gitignore`).
 
 ## 6. Resumen — Condición B (con contexto de clasificación)
-_Pendiente_
+**Estado:** Completado (14 sep 2026)
+
+**Qué se hizo:**
+- Mismo pipeline que Condición A, pero el prompt de cada email incluye las etiquetas predichas por BERT+LoRA (`results/bc3_bert_lora_test_predictions.csv`): se añade `| Labels: Request, Commit` al encabezado de cada email, junto con una breve explicación del significado de cada categoría al inicio del prompt.
+- Resultados guardados en `results/bc3_summaries_condition_b.csv` (columnas: listno, thread_name, n_emails, summary_b).
+- Notebook de visualización `notebooks/bc3_summarization.ipynb`: carga los dos CSVs y muestra los resúmenes A y B lado a lado por hilo, sin lógica de generación (no requiere API key).
+
+**Observación preliminar (cualitativa):** los resúmenes de Condición B tienden a ser ligeramente más largos (media ~1175 chars vs ~1175 chars en A — diferencia mínima en longitud), pero la evaluación cuantitativa queda para la Tarea 7 con ROUGE.
 
 ## 7. Evaluación de resúmenes: ROUGE + revisión manual
 _Pendiente_
