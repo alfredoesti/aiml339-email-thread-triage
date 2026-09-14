@@ -143,7 +143,25 @@ posible ajuste fino si sobra tiempo, no es prioritario para el baseline.
 **Observación preliminar (cualitativa):** los resúmenes de Condición B tienden a ser ligeramente más largos (media ~1175 chars vs ~1175 chars en A — diferencia mínima en longitud), pero la evaluación cuantitativa queda para la Tarea 7 con ROUGE.
 
 ## 7. Evaluación de resúmenes: ROUGE + revisión manual
-_Pendiente_
+**Estado:** ROUGE automático completado (14 sep 2026); revisión manual pendiente.
+
+**Qué se hizo:**
+- Script `src/bc3_rouge.py`: calcula ROUGE-1, ROUGE-2 y ROUGE-L (F1, con stemming) para los resúmenes generados en ambas condiciones, contra los resúmenes de referencia del corpus BC3.
+- Múltiples anotadores (3 por hilo): se computa ROUGE contra cada anotador por separado y se guarda el máximo de los tres (estándar DUC/TAC y del propio paper de BC3). Justificación: los anotadores humanos también difieren entre sí; penalizar al modelo por coincidir con solo uno de ellos sería injusto.
+- Resultados guardados en `results/bc3_rouge_scores.csv`. Gráfico en `results/bc3_rouge_comparison.png`.
+- Notebook `notebooks/bc3_rouge.ipynb`: explicación de ROUGE, tabla por hilo con winner A/B, gráfico de barras comparativo, y análisis interpretativo escrito con los números reales.
+
+**Resultados (medias sobre 6 hilos de test):**
+- ROUGE-1: A=0.3928, B=0.3990 (+0.006)
+- ROUGE-2: A=0.1027, B=0.1124 (+0.010)
+- ROUGE-L: A=0.2008, B=0.2239 (+0.023)
+
+**Conclusión principal:** Condición B supera a A en promedio en las tres métricas. La mejora más clara es en ROUGE-L (+0.023), que mide la coherencia del flujo del resumen — exactamente lo que las etiquetas de acto de habla deberían ayudar a priorizar. Sin embargo, con solo 6 hilos las diferencias no son estadísticamente significativas y no son uniformes: B gana en 4 de 6 hilos en ROUGE-L, pero pierde en 2 (incluido `015-2625401`, un hilo muy corto de feedback de diseño donde las etiquetas añaden ruido en lugar de estructura).
+
+**Dificultades / observaciones para el informe:**
+- Los valores absolutos de ROUGE (~0.39 ROUGE-1) son normales para resúmenes abstractivos contra referencias de estilo extractivo. No indican mala calidad — simplemente que ROUGE penaliza la paráfrasis.
+- La calidad de Condición B depende de la calidad de las predicciones de BERT+LoRA (Micro F1=0.637). Errores de clasificación se propagan al prompt y pueden desorientar al modelo.
+- Limitación principal: 6 hilos de test son insuficientes para extraer conclusiones robustas. El efecto observado es consistente con la hipótesis pero no concluyente.
 
 ## 8. Demo: Gmail personal anonimizado
 _Pendiente_
