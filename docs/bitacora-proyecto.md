@@ -164,7 +164,15 @@ posible ajuste fino si sobra tiempo, no es prioritario para el baseline.
 - Limitación principal: 6 hilos de test son insuficientes para extraer conclusiones robustas. El efecto observado es consistente con la hipótesis pero no concluyente.
 
 ## 8. Demo: Gmail personal anonimizado
-_Pendiente_
+**Estado:** En progreso (14 sep 2026)
+
+**Decisión tomada:** aunque la tarea está marcada como "opcional no evaluada" en el plan, se decide implementarla porque demuestra que el pipeline completo funciona sobre datos reales fuera del corpus BC3, lo que refuerza la sección de aplicabilidad del informe.
+
+**Plan de implementación:**
+1. Configurar OAuth2 con la Gmail API (Google Cloud Console, credenciales de escritorio).
+2. Seleccionar una muestra de hilos reales del Gmail personal y anonimizarlos con Microsoft Presidio (detecta y reemplaza PII: nombres, emails, teléfonos, organizaciones).
+3. Correr el pipeline completo: clasificación con BERT+LoRA → resumen Condición B con Gemini.
+4. Guardar los resultados anonimizados (nunca texto original) en `results/gmail_demo/`.
 
 ## 9. Fechas confirmadas del curso
 _Pendiente_
