@@ -13,7 +13,7 @@ python-dotenv>=1.0
 rouge-score>=0.1.2
 matplotlib>=3.7
 
-# Para la Tarea 8 (demo Gmail anonimizado) — pendiente
-# google-api-python-client
-# presidio-analyzer
-# presidio-anonymizer
+# Para la Tarea 8 (demo Gmail — triage agent)
+google-api-python-client>=2.100
+google-auth-httplib2>=0.2
+google-auth-oauthlib>=1.2
