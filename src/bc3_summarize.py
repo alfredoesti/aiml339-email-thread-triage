@@ -29,7 +29,7 @@ RESULTS    = REPO_ROOT / "results"
 
 LABEL_COLS = ["Request", "Propose", "Commit", "Meeting", "Subjective", "Informative"]
 
-MODEL      = "gemini-1.5-flash"
+MODEL      = "gemini-3.5-flash"
 PAUSE_SEC  = 13  # free tier: 5 RPM → need ≥12s between calls
 
 SYSTEM_INSTRUCTION = (
@@ -116,12 +116,21 @@ def build_labeled_prompt(thread_df: pd.DataFrame, thread_preds: pd.DataFrame) ->
 # ---------------------------------------------------------------------------
 
 def summarize(prompt: str) -> str:
-    response = client.models.generate_content(
-        model=MODEL,
-        contents=prompt,
-        config={"system_instruction": SYSTEM_INSTRUCTION},
-    )
-    return response.text.strip()
+    for _ in range(4):
+        try:
+            response = client.models.generate_content(
+                model=MODEL,
+                contents=prompt,
+                config={"system_instruction": SYSTEM_INSTRUCTION},
+            )
+            return response.text.strip()
+        except Exception as e:
+            if "503" in str(e):
+                print(" [503, reintentando en 30s]", end="", flush=True)
+                time.sleep(30)
+            else:
+                raise
+    raise RuntimeError("Failed after 4 attempts")
 
 
 records_a = []

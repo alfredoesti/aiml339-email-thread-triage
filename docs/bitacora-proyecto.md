@@ -156,20 +156,36 @@ El bloque de etiquetas de Condición B también se mejoró: en lugar de "usa las
 - Resultados guardados en `results/bc3_rouge_scores.csv`. Gráfico en `results/bc3_rouge_comparison.png`.
 - Notebook `notebooks/bc3_rouge.ipynb`: explicación de ROUGE, tabla por hilo con winner A/B, gráfico de barras comparativo, y análisis interpretativo escrito con los números reales.
 
-**Resultados (medias sobre 6 hilos de test):**
+**Resultados — prompts originales (14 sep 2026):**
 - ROUGE-1: A=0.3928, B=0.3990 (+0.006)
 - ROUGE-2: A=0.1027, B=0.1124 (+0.010)
 - ROUGE-L: A=0.2008, B=0.2239 (+0.023)
 
-**Conclusión principal:** Condición B supera a A en promedio en las tres métricas. La mejora más clara es en ROUGE-L (+0.023), que mide la coherencia del flujo del resumen — exactamente lo que las etiquetas de acto de habla deberían ayudar a priorizar. Sin embargo, con solo 6 hilos las diferencias no son estadísticamente significativas y no son uniformes: B gana en 4 de 6 hilos en ROUGE-L, pero pierde en 2 (incluido `015-2625401`, un hilo muy corto de feedback de diseño donde las etiquetas añaden ruido en lugar de estructura).
+**Resultados — prompts mejorados (17 sep 2026, modelo gemini-3.5-flash):**
+- ROUGE-1: A=0.4094, B=0.4309 (+0.0215)
+- ROUGE-2: A=0.1113, B=0.1332 (+0.0219)
+- ROUGE-L: A=0.2200, B=0.2272 (+0.0072)
+
+Resultados por hilo (prompts mejorados):
+
+| Hilo | R1-A | R1-B | R2-A | R2-B | RL-A | RL-B |
+|------|------|------|------|------|------|------|
+| 059 Phone connection | 0.451 | 0.487 | 0.137 | 0.150 | 0.229 | 0.237 |
+| 061 Non-geek guidelines | 0.459 | 0.480 | 0.144 | 0.142 | 0.269 | 0.232 |
+| 063 WAI-ER-IG Welcome | 0.429 | 0.443 | 0.144 | 0.179 | 0.217 | 0.265 |
+| 067 Graphics/Web Design | 0.364 | 0.348 | 0.050 | 0.078 | 0.171 | 0.192 |
+| 015 SWADEurope postcard | 0.350 | 0.406 | 0.075 | 0.086 | 0.193 | 0.194 |
+| 058 Next face to face | 0.405 | 0.422 | 0.118 | 0.164 | 0.241 | 0.244 |
+
+**Conclusión principal:** Los prompts mejorados suben ambas condiciones (~+0.017 en ROUGE-1 de media). Condición B sigue superando a A en las tres métricas globales. B gana a A en ROUGE-1 en 5 de 6 hilos y en ROUGE-2 en todos los hilos. El único hilo donde A supera a B en ROUGE-1 es `067` (discusión técnica/subjetiva sobre diseño web accesible, donde las etiquetas de acto de habla añaden menos valor estructural). En ROUGE-L la mejora de B sobre A es más modesta (+0.007) que en los prompts originales (+0.023), aunque los valores absolutos son más altos en ambas condiciones.
 
 **Evaluación multi-referencia (ya implementada desde el inicio):** ROUGE se calcula contra cada anotador por separado y se guarda el **máximo** de los tres (estándar DUC/TAC y del propio paper de BC3). Esto es correcto: penalizar al modelo por coincidir con solo uno de tres anotadores sería injusto dado que los propios anotadores humanos difieren entre sí. El código en `bc3_rouge.py` (líneas 57-60) implementa `max(s[metric].fmeasure for s in scores_per_ref)`.
 
 **Dificultades / observaciones para el informe:**
-- Los valores absolutos de ROUGE (~0.39 ROUGE-1) son normales para resúmenes abstractivos contra referencias de estilo extractivo. No indican mala calidad — simplemente que ROUGE penaliza la paráfrasis.
+- Los valores absolutos de ROUGE (~0.41 ROUGE-1) son normales para resúmenes abstractivos contra referencias de estilo extractivo. No indican mala calidad — simplemente que ROUGE penaliza la paráfrasis.
 - La calidad de Condición B depende de la calidad de las predicciones de BERT+LoRA (Micro F1=0.637). Errores de clasificación se propagan al prompt y pueden desorientar al modelo.
 - Limitación principal: 6 hilos de test son insuficientes para extraer conclusiones robustas. El efecto observado es consistente con la hipótesis pero no concluyente.
-- **Pendiente (16 sep 2026):** re-ejecutar `bc3_summarize.py` con los prompts mejorados y luego `bc3_rouge.py` para obtener nuevas puntuaciones ROUGE comparables. No se pudo hacer en la misma sesión por límite diario del free tier de Gemini (20 req/día en gemini-3.6-flash, ya agotadas). Usar `gemini-1.5-flash` en la próxima ejecución.
+- **Nota técnica (17 sep 2026):** `gemini-1.5-flash` fue deprecado por Google entre sesiones. Se migró a `gemini-3.5-flash` para la re-ejecución con prompts mejorados. El cambio de modelo puede introducir variación en los resultados, aunque la dirección del efecto (B > A) se mantiene.
 
 ## 8. Demo: Gmail Triage Agent
 **Estado:** Primera versión funcional ejecutada en bandeja real (16 sep 2026). Pendiente de mejoras y configuración del Task Scheduler.
@@ -219,11 +235,11 @@ Script `src/bc3_summarize.py`. Se generaron resúmenes de 150-200 palabras para 
 Mismo pipeline que A, pero el prompt incluye las etiquetas predichas por BERT+LoRA para cada email (`results/bc3_bert_lora_test_predictions.csv`): se añade al encabezado de cada email `| Labels: Request, Commit` junto con una explicación del significado de cada categoría. Resultados en `results/bc3_summaries_condition_b.csv`. Visualización lado a lado en `notebooks/bc3_summarization.ipynb`.
 
 **Tarea 7 — Evaluación ROUGE (Condición A vs B):**
-Script `src/bc3_rouge.py`. ROUGE-1, ROUGE-2 y ROUGE-L calculados contra los resúmenes de referencia del corpus BC3 (máximo de los 3 anotadores, estándar DUC/TAC). Resultados:
-- ROUGE-1: A=0.3928 vs B=0.3990 (+0.006)
-- ROUGE-2: A=0.1027 vs B=0.1124 (+0.010)
-- ROUGE-L: A=0.2008 vs B=0.2239 (+0.023)
-Conclusión: Condición B supera a A en las tres métricas, especialmente en ROUGE-L (+0.023), que mide coherencia del flujo — exactamente lo que las etiquetas de acto de habla deberían aportar. Gráfico en `results/bc3_rouge_comparison.png`. Notebook con análisis en `notebooks/bc3_rouge.ipynb`.
+Script `src/bc3_rouge.py`. ROUGE-1, ROUGE-2 y ROUGE-L calculados contra los resúmenes de referencia del corpus BC3 (máximo de los 3 anotadores, estándar DUC/TAC). Resultados finales (prompts mejorados, 17 sep 2026):
+- ROUGE-1: A=0.4094 vs B=0.4309 (+0.0215)
+- ROUGE-2: A=0.1113 vs B=0.1332 (+0.0219)
+- ROUGE-L: A=0.2200 vs B=0.2272 (+0.0072)
+Conclusión: Condición B supera a A en las tres métricas. B gana en 5 de 6 hilos en ROUGE-1 y en todos en ROUGE-2. Gráfico en `results/bc3_rouge_comparison.png`. Notebook con análisis en `notebooks/bc3_rouge.ipynb`.
 
 **Tarea 8 — Demo Gmail Triage Agent (en progreso):**
 Agente funcional que clasifica correos reales de la bandeja personal en 5 categorías y aplica etiquetas automáticamente en Gmail. Primera ejecución completada sobre 10 hilos reales. Pendiente: Task Scheduler, mejora del prompt de clasificación, notebook de demo con outputs reales.

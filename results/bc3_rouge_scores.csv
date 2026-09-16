@@ -1,7 +1,7 @@
 listno,thread_name,n_emails,rouge1_a,rouge2_a,rougeL_a,rouge1_b,rouge2_b,rougeL_b
-059-11070771,Phone connection to face to face meeting.,7,0.4026,0.098,0.1818,0.4377,0.1223,0.2492
-061-10140940,Non-geek version of guidelines,6,0.4672,0.1134,0.2075,0.4432,0.0977,0.2374
-063-1009111,WAI-ER-IG Welcome and Introductions,6,0.3698,0.132,0.1995,0.4108,0.1523,0.2249
-067-1027069,"Appropriate Use of Graphics, and Web Design by Blind People",6,0.3246,0.0726,0.16,0.329,0.0786,0.1991
-015-2625401,SWADEurope postcard picture,6,0.4175,0.1024,0.2198,0.4104,0.0948,0.1981
-058-13714734,Next face to face meeting,6,0.375,0.0979,0.2361,0.363,0.129,0.2349
+059-11070771,Phone connection to face to face meeting.,7,0.4512,0.1373,0.229,0.4865,0.1497,0.2365
+061-10140940,Non-geek version of guidelines,6,0.4585,0.1441,0.2693,0.4802,0.142,0.2316
+063-1009111,WAI-ER-IG Welcome and Introductions,6,0.4286,0.1436,0.2167,0.4427,0.179,0.2646
+067-1027069,"Appropriate Use of Graphics, and Web Design by Blind People",6,0.3636,0.0495,0.1709,0.3481,0.0778,0.1923
+015-2625401,SWADEurope postcard picture,6,0.35,0.0754,0.1932,0.4057,0.0863,0.1941
+058-13714734,Next face to face meeting,6,0.4047,0.1176,0.2412,0.4222,0.1642,0.2444
