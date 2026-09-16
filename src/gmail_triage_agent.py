@@ -23,6 +23,7 @@ import base64
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -39,8 +40,8 @@ REPO_ROOT   = Path(__file__).resolve().parent.parent
 RESULTS_DIR = REPO_ROOT / "results" / "gmail_triage"
 LOG_FILE    = RESULTS_DIR / "triage_log.csv"
 
-GEMINI_MODEL      = "gemini-2.0-flash"  # free-tier, fast enough for classification
-PAUSE_SEC         = 2                    # seconds between Gemini calls (rate-limit safety)
+GEMINI_MODEL      = "gemini-1.5-flash"  # 1500 req/day free tier (vs 20 of gemini-3.6-flash)
+PAUSE_SEC         = 13                   # free tier allows 5 RPM → need ≥12s between calls
 FIRST_RUN_LIMIT   = 10                  # threads to process on the very first run
 STATE_FILE        = RESULTS_DIR / "last_run.txt"  # stores the timestamp of the last run
 
@@ -49,7 +50,6 @@ CATEGORIES = [
     "Universidad",
     "Trabajo",
     "Personal",
-    "Newsletters",
     "Spam",
     "Otro",
 ]
@@ -60,10 +60,14 @@ LABEL_PREFIX = "Triage"
 CATEGORY_DESCRIPTIONS = {
     "Universidad": "university, courses, professors, academic deadlines, student admin",
     "Trabajo":     "job, internship, work projects, colleagues, recruiters",
-    "Personal":    "friends, family, personal plans, private matters",
-    "Newsletters": "newsletters, digests, subscriptions, automated updates, promotions",
-    "Spam":        "unsolicited, irrelevant, suspicious, or junk email",
-    "Otro":        "anything that does not clearly fit the above categories",
+    "Personal":    "friends, family, personal matters, or important news from explicitly "
+                   "subscribed sources such as Bloomberg financial newsletters",
+    "Spam":        "any unsolicited or promotional email: marketing, discounts, food delivery "
+                   "(Uber Eats, DoorDash), restaurants (Chipotle, Subway, Shake Shack), "
+                   "entertainment/events (Ticketmaster, Hot Wheels), retail offers, or any "
+                   "email the user did not explicitly request",
+    "Otro":        "transactional emails (bank fee updates, exchange delistings, account "
+                   "notices) or anything that does not clearly fit the above categories",
 }
 
 logging.basicConfig(
@@ -77,7 +81,7 @@ log = logging.getLogger(__name__)
 # Block 1 — Label management
 # ---------------------------------------------------------------------------
 
-def get_or_create_triage_labels(service) -> dict[str, str]:
+def get_or_create_triage_labels(service) -> dict:
     """Return a mapping {category_name: gmail_label_id} for all Triage/* labels.
 
     Creates any label that does not yet exist in the account.
@@ -107,7 +111,7 @@ def get_or_create_triage_labels(service) -> dict[str, str]:
 # Block 2 — Fetch unprocessed threads
 # ---------------------------------------------------------------------------
 
-def _read_last_run_timestamp() -> int | None:
+def _read_last_run_timestamp() -> Optional[int]:
     """Return the Unix timestamp (seconds) of the last run, or None if first run."""
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     if STATE_FILE.exists():
@@ -120,7 +124,7 @@ def _save_last_run_timestamp(ts: int) -> None:
     STATE_FILE.write_text(str(ts))
 
 
-def fetch_untriaged_threads(service, label_ids: dict[str, str]) -> list[dict]:
+def fetch_untriaged_threads(service, label_ids: dict) -> list:
     """Return threads in the Inbox that have no Triage/* label yet.
 
     First run: returns the 10 most recent threads so we don't flood the
