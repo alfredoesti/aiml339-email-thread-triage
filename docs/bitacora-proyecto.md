@@ -130,7 +130,12 @@ posible ajuste fino si sobra tiempo, no es prioritario para el baseline.
 
 **Decisión de API:** se usó Gemini 3.6 Flash (google-genai, capa gratuita) en lugar de OpenAI, que era la opción original del plan. Razón: el autor ya tenía clave de Google AI Studio activa. El cambio no afecta la validez del experimento — lo que se evalúa es el efecto de añadir etiquetas al prompt, no el modelo en sí. Se documenta como decisión consciente.
 
-**Nota técnica:** `gemini-2.0-flash` fue deprecado durante el desarrollo; se migró a `gemini-3.6-flash`. La clave de API se carga desde un fichero `.env` en la raíz del repo (excluido de git vía `.gitignore`).
+**Nota técnica:** `gemini-2.0-flash` fue deprecado durante el desarrollo; se migró primero a `gemini-3.6-flash` y después a `gemini-1.5-flash` (límite del free tier: 1.500 req/día vs. 20 de 3.6-flash). La clave de API se carga desde un fichero `.env` en la raíz del repo (excluido de git vía `.gitignore`).
+
+**Actualización de prompts (16 sep 2026):**
+El system prompt original era genérico ("cover: main topic, key discussion points, any decisions, any action items"). Se reemplazó por un prompt con orden de prioridad explícito alineado con el estilo de los anotadores del BC3: (1) tema y estado, (2) decisiones y compromisos con nombres exactos, (3) action items con responsable y plazo, (4) resto solo si influyó en una decisión. Se añadió la instrucción "do not invent names, dates, or details" para evitar alucinaciones. El system prompt es **idéntico** en Condición A y B para que la única variable experimental sea la presencia de etiquetas.
+
+El bloque de etiquetas de Condición B también se mejoró: en lugar de "usa las etiquetas para entender el rol", ahora da instrucciones concretas por etiqueta (Commit → inclúyelo en decisiones; Subjective → solo si cambió el resultado; etc.) con la advertencia de usarlas como señales, no como guión literal.
 
 ## 6. Resumen — Condición B (con contexto de clasificación)
 **Estado:** Completado (14 sep 2026)
@@ -158,10 +163,13 @@ posible ajuste fino si sobra tiempo, no es prioritario para el baseline.
 
 **Conclusión principal:** Condición B supera a A en promedio en las tres métricas. La mejora más clara es en ROUGE-L (+0.023), que mide la coherencia del flujo del resumen — exactamente lo que las etiquetas de acto de habla deberían ayudar a priorizar. Sin embargo, con solo 6 hilos las diferencias no son estadísticamente significativas y no son uniformes: B gana en 4 de 6 hilos en ROUGE-L, pero pierde en 2 (incluido `015-2625401`, un hilo muy corto de feedback de diseño donde las etiquetas añaden ruido en lugar de estructura).
 
+**Evaluación multi-referencia (ya implementada desde el inicio):** ROUGE se calcula contra cada anotador por separado y se guarda el **máximo** de los tres (estándar DUC/TAC y del propio paper de BC3). Esto es correcto: penalizar al modelo por coincidir con solo uno de tres anotadores sería injusto dado que los propios anotadores humanos difieren entre sí. El código en `bc3_rouge.py` (líneas 57-60) implementa `max(s[metric].fmeasure for s in scores_per_ref)`.
+
 **Dificultades / observaciones para el informe:**
 - Los valores absolutos de ROUGE (~0.39 ROUGE-1) son normales para resúmenes abstractivos contra referencias de estilo extractivo. No indican mala calidad — simplemente que ROUGE penaliza la paráfrasis.
 - La calidad de Condición B depende de la calidad de las predicciones de BERT+LoRA (Micro F1=0.637). Errores de clasificación se propagan al prompt y pueden desorientar al modelo.
 - Limitación principal: 6 hilos de test son insuficientes para extraer conclusiones robustas. El efecto observado es consistente con la hipótesis pero no concluyente.
+- **Pendiente (16 sep 2026):** re-ejecutar `bc3_summarize.py` con los prompts mejorados y luego `bc3_rouge.py` para obtener nuevas puntuaciones ROUGE comparables. No se pudo hacer en la misma sesión por límite diario del free tier de Gemini (20 req/día en gemini-3.6-flash, ya agotadas). Usar `gemini-1.5-flash` en la próxima ejecución.
 
 ## 8. Demo: Gmail Triage Agent
 **Estado:** Primera versión funcional ejecutada en bandeja real (16 sep 2026). Pendiente de mejoras y configuración del Task Scheduler.

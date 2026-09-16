@@ -29,14 +29,22 @@ RESULTS    = REPO_ROOT / "results"
 
 LABEL_COLS = ["Request", "Propose", "Commit", "Meeting", "Subjective", "Informative"]
 
-MODEL      = "gemini-3.6-flash"
-PAUSE_SEC  = 5   # seconds between API calls to stay within free-tier rate limits
+MODEL      = "gemini-1.5-flash"
+PAUSE_SEC  = 13  # free tier: 5 RPM → need ≥12s between calls
 
 SYSTEM_INSTRUCTION = (
-    "You are an assistant that summarizes email threads for a research project. "
-    "Write a concise summary of 150-200 words. Cover: the main topic, key discussion "
-    "points, any decisions reached, and any action items. Use plain prose, no bullet "
-    "points or markdown headers."
+    "You are an expert at summarizing professional email threads for a research project.\n\n"
+    "Write a factual summary of 150-200 words in plain prose (no bullet points, no markdown headers).\n\n"
+    "Follow this priority order:\n"
+    "1. State the main topic of the thread and its outcome or current status.\n"
+    "2. Include every concrete decision reached and every commitment made, using the exact "
+    "names of the people involved (e.g. \"Charles agreed to...\", \"the group decided to...\").\n"
+    "3. List all action items explicitly, naming who is responsible and any deadline mentioned.\n"
+    "4. Include other discussion points only if they directly influenced a decision or action item.\n\n"
+    "Omit opinions, greetings, and off-topic remarks. Be specific: prefer "
+    "\"October 7-8 at the Royal Sonesta Hotel\" over \"a future date and location\". "
+    "Base the summary only on the content of the thread below — do not invent names, "
+    "dates, or details that are not present in it."
 )
 
 # ---------------------------------------------------------------------------
@@ -75,9 +83,15 @@ def build_raw_prompt(thread_df: pd.DataFrame) -> str:
 
 def build_labeled_prompt(thread_df: pd.DataFrame, thread_preds: pd.DataFrame) -> str:
     label_intro = (
-        "Each email below has been automatically annotated with speech act labels "
+        "Each email below is annotated with one or more speech-act labels assigned by a classifier "
         "(Request / Propose / Commit / Meeting / Subjective / Informative). "
-        "Use these labels to understand each email's communicative role when writing the summary.\n\n"
+        "Use them as signals for what to prioritize, not as a script to follow literally:\n"
+        "- Commit: a firm commitment was made — report it among the decisions/action items.\n"
+        "- Request: something is being asked for — include it if it drives the thread toward a decision or action.\n"
+        "- Propose: a proposal was made — state whether it was accepted, rejected, or left open.\n"
+        "- Meeting: scheduling or logistics — include concrete dates, times, and locations.\n"
+        "- Subjective: personal opinion — include only if it changed the outcome of the discussion.\n"
+        "- Informative: background information — include only if necessary to understand the decision or outcome.\n\n"
         "Email thread:\n\n"
     )
     parts = []
