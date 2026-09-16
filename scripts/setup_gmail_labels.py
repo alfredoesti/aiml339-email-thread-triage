@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from gmail_auth import get_gmail_service
 
 LABEL_PREFIX = "Triage"
-CATEGORIES   = ["Universidad", "Trabajo", "Personal", "Newsletters", "Spam", "Otro"]
+CATEGORIES   = ["Universidad", "Trabajo", "Personal", "Spam", "Otro"]
 
 
 def main():
