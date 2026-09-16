@@ -90,4 +90,4 @@ python bc3_baseline_tfidf.py
 
 ## Autor
 
-Mister — 300699324, Data Science and Engineering, Victoria University of Wellington.
+ALfredo Estirado 300699324, Data Science and Engineering, Victoria University of Wellington.
