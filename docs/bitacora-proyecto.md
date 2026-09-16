@@ -163,16 +163,64 @@ posible ajuste fino si sobra tiempo, no es prioritario para el baseline.
 - La calidad de Condición B depende de la calidad de las predicciones de BERT+LoRA (Micro F1=0.637). Errores de clasificación se propagan al prompt y pueden desorientar al modelo.
 - Limitación principal: 6 hilos de test son insuficientes para extraer conclusiones robustas. El efecto observado es consistente con la hipótesis pero no concluyente.
 
-## 8. Demo: Gmail personal anonimizado
-**Estado:** En progreso (14 sep 2026)
+## 8. Demo: Gmail Triage Agent
+**Estado:** Primera versión funcional ejecutada en bandeja real (16 sep 2026). Pendiente de mejoras y configuración del Task Scheduler.
 
-**Decisión tomada:** aunque la tarea está marcada como "opcional no evaluada" en el plan, se decide implementarla porque demuestra que el pipeline completo funciona sobre datos reales fuera del corpus BC3, lo que refuerza la sección de aplicabilidad del informe.
+**Cambio de enfoque respecto al plan original (importante):** la demo se rediseñó completamente. En lugar de anonimizar hilos de Gmail y resumirlos con el pipeline BC3, se implementó un **agente de triaje automático** que clasifica cada hilo de la bandeja de entrada en 5 categorías (Universidad / Trabajo / Personal / Spam / Otro) y aplica la etiqueta `Triage/*` correspondiente directamente en Gmail. Razones: más útil en la práctica, más demostrable en tiempo real ante el supervisor, y mantiene el espíritu de "aplicación a datos reales" que justificaba la tarea.
 
-**Plan de implementación:**
-1. Configurar OAuth2 con la Gmail API (Google Cloud Console, credenciales de escritorio).
-2. Seleccionar una muestra de hilos reales del Gmail personal y anonimizarlos con Microsoft Presidio (detecta y reemplaza PII: nombres, emails, teléfonos, organizaciones).
-3. Correr el pipeline completo: clasificación con BERT+LoRA → resumen Condición B con Gemini.
-4. Guardar los resultados anonimizados (nunca texto original) en `results/gmail_demo/`.
+**Qué se implementó:**
+- `src/gmail_auth.py`: módulo OAuth2 reutilizable con token persistente (no vuelve a pedir permiso tras la primera autorización). Credenciales en `credentials.json` (gitignoreado). Proyecto Google Cloud: `gen-lang-client-0886504393` ("Default Gemini Project"), misma cuenta que la Gemini API key. Gmail API habilitada, pantalla de consentimiento tipo Externo, usuario de prueba `alfreditoestirado@gmail.com`.
+- `src/gmail_triage_agent.py`: agente principal. Lógica incremental: primera ejecución procesa los últimos 10 hilos; ejecuciones siguientes solo procesan hilos nuevos desde el último timestamp (`results/gmail_triage/last_run.txt`). Clasificación via Gemini. Log acumulativo en `results/gmail_triage/triage_log.csv`.
+- `scripts/setup_gmail_labels.py`: script one-time para crear las etiquetas `Triage/*` en Gmail.
+- `scripts/run_triage.py`: punto de entrada para el Task Scheduler. Incluye flag `--reset` para reiniciar el estado y opción `--help`.
+- `notebooks/gmail_triage_demo.ipynb`: notebook de visualización para la demo (lee el log, muestra distribución por categoría y últimos hilos clasificados).
+
+**Categorías finales (tras ajustes durante la primera ejecución):**
+- `Triage/Universidad`, `Triage/Trabajo`, `Triage/Personal`, `Triage/Spam`, `Triage/Otro`.
+- Se eliminó `Triage/Newsletters`: la única newsletter real es Bloomberg, que va a Personal. Todo lo demás no solicitado (Uber Eats, Ticketmaster, Chipotle, Subway, etc.) va a Spam.
+
+**Modelo usado:** `gemini-1.5-flash` (1.500 peticiones/día en el free tier). Se descartó `gemini-3.6-flash` porque su free tier solo permite 20 peticiones/día, lo cual se agotó durante las pruebas de ajuste del primer día.
+
+**Primera ejecución real (resultados):**
+- 10 hilos de la bandeja personal clasificados correctamente en su mayoría.
+- Bloomberg ("Bond market tumble", "The AI boom continues") → Personal ✓
+- Subway, Hot Wheels, Shake Shack, Chipotle → Spam ✓
+- Oferta de Data Scientist CaixaBank/Accenture → Trabajo ✓
+
+**Dificultades / pendiente de mejorar:**
+- El límite de 5 peticiones/minuto del free tier requiere 13 segundos de pausa entre llamadas — el run de 10 hilos tarda ~2 minutos. Para el Task Scheduler no es un problema, pero para una demo en vivo hay que anticiparlo.
+- La clasificación no es perfecta todavía: algunos correos promocionales ambiguos caen en "Otro" en lugar de "Spam". Pendiente de afinar el prompt o añadir ejemplos adicionales de remitentes concretos.
+- El agente todavía **no está configurado como tarea programada** en Windows Task Scheduler — queda pendiente para la siguiente sesión.
+- El notebook de demo `notebooks/gmail_triage_demo.ipynb` no tiene outputs todavía (no se ejecutó con datos reales de forma completa). Se completará cuando el agente tenga un run limpio.
+
+**Archivos clave:**
+- Código: `src/gmail_auth.py`, `src/gmail_triage_agent.py`, `scripts/run_triage.py`, `scripts/setup_gmail_labels.py`
+- Resultados: `results/gmail_triage/triage_log.csv`, `results/gmail_triage/agent.log`
+- Demo: `notebooks/gmail_triage_demo.ipynb`
+
+---
+
+## RESUMEN PARA CHECK-IN (16 sep 2026) — Avance desde Tarea 4
+
+El último check-in cubrió hasta la Tarea 4 (comparación baseline vs BERT+LoRA). Desde entonces se han completado las Tareas 5, 6, 7 y avanzado en la 8:
+
+**Tarea 5 — Resumen LLM Condición A (texto crudo):**
+Script `src/bc3_summarize.py`. Se generaron resúmenes de 150-200 palabras para los 6 hilos de test del corpus BC3 usando solo el texto crudo como input al LLM. Modelo: Gemini (Google AI Studio, free tier). Resultados en `results/bc3_summaries_condition_a.csv`.
+
+**Tarea 6 — Resumen LLM Condición B (texto + etiquetas de acto de habla):**
+Mismo pipeline que A, pero el prompt incluye las etiquetas predichas por BERT+LoRA para cada email (`results/bc3_bert_lora_test_predictions.csv`): se añade al encabezado de cada email `| Labels: Request, Commit` junto con una explicación del significado de cada categoría. Resultados en `results/bc3_summaries_condition_b.csv`. Visualización lado a lado en `notebooks/bc3_summarization.ipynb`.
+
+**Tarea 7 — Evaluación ROUGE (Condición A vs B):**
+Script `src/bc3_rouge.py`. ROUGE-1, ROUGE-2 y ROUGE-L calculados contra los resúmenes de referencia del corpus BC3 (máximo de los 3 anotadores, estándar DUC/TAC). Resultados:
+- ROUGE-1: A=0.3928 vs B=0.3990 (+0.006)
+- ROUGE-2: A=0.1027 vs B=0.1124 (+0.010)
+- ROUGE-L: A=0.2008 vs B=0.2239 (+0.023)
+Conclusión: Condición B supera a A en las tres métricas, especialmente en ROUGE-L (+0.023), que mide coherencia del flujo — exactamente lo que las etiquetas de acto de habla deberían aportar. Gráfico en `results/bc3_rouge_comparison.png`. Notebook con análisis en `notebooks/bc3_rouge.ipynb`.
+
+**Tarea 8 — Demo Gmail Triage Agent (en progreso):**
+Agente funcional que clasifica correos reales de la bandeja personal en 5 categorías y aplica etiquetas automáticamente en Gmail. Primera ejecución completada sobre 10 hilos reales. Pendiente: Task Scheduler, mejora del prompt de clasificación, notebook de demo con outputs reales.
+
+**Limitación importante a mencionar en el check-in:** con solo 6 hilos de test, las diferencias ROUGE entre A y B son consistentes con la hipótesis pero no estadísticamente significativas. El resultado es prometedor, no concluyente.
 
 ## 9. Fechas confirmadas del curso
 _Pendiente_
