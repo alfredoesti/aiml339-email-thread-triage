@@ -26,6 +26,9 @@ secrets.json
 credentials.json
 token.json
 
+# Gmail triage — logs y estado cambian en cada ejecucion, no van al repo
+results/gmail_triage/
+
 # Sistema operativo
 .DS_Store
 Thumbs.db
