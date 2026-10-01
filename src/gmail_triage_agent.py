@@ -40,8 +40,8 @@ REPO_ROOT   = Path(__file__).resolve().parent.parent
 RESULTS_DIR = REPO_ROOT / "results" / "gmail_triage"
 LOG_FILE    = RESULTS_DIR / "triage_log.csv"
 
-GEMINI_MODEL      = "gemini-1.5-flash"  # 1500 req/day free tier (vs 20 of gemini-3.6-flash)
-PAUSE_SEC         = 13                   # free tier allows 5 RPM → need ≥12s between calls
+GEMINI_MODEL      = "gemini-3.8-flash"  # gemini-1.5-flash deprecated; 3.8-flash is current free tier
+PAUSE_SEC         = 30                   # gemini-3.8-flash free tier is stricter — 2 RPM safe margin
 FIRST_RUN_LIMIT   = 10                  # threads to process on the very first run
 STATE_FILE        = RESULTS_DIR / "last_run.txt"  # stores the timestamp of the last run
 
