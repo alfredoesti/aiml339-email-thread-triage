@@ -9,6 +9,7 @@ Outputs:
   results/bc3_summaries_condition_b.csv
 
 Requires GEMINI_API_KEY in a .env file at the repo root.
+Resume-safe: if a CSV already exists, threads already present are skipped.
 """
 
 import json
@@ -29,8 +30,8 @@ RESULTS    = REPO_ROOT / "results"
 
 LABEL_COLS = ["Request", "Propose", "Commit", "Meeting", "Subjective", "Informative"]
 
-MODEL      = "gemini-3.5-flash"
-PAUSE_SEC  = 13  # free tier: 5 RPM → need ≥12s between calls
+MODEL      = "gemini-3.8-flash"
+PAUSE_SEC  = 30  # gemini-3.8-flash free tier is stricter — 2 RPM safe margin
 
 SYSTEM_INSTRUCTION = (
     "You are an expert at summarizing professional email threads for a research project.\n\n"
@@ -65,6 +66,17 @@ emails_df = pd.read_csv(DATA_PATH / "bc3_emails_labeled.csv")
 test_emails = emails_df[emails_df["listno"].isin(test_threads)].copy()
 
 preds_df = pd.read_csv(RESULTS / "bc3_bert_lora_test_predictions.csv")
+
+# Load existing results if present (for resume)
+RESULTS.mkdir(exist_ok=True)
+path_a = RESULTS / "bc3_summaries_condition_a.csv"
+path_b = RESULTS / "bc3_summaries_condition_b.csv"
+
+done_a = set(pd.read_csv(path_a)["listno"].tolist()) if path_a.exists() else set()
+done_b = set(pd.read_csv(path_b)["listno"].tolist()) if path_b.exists() else set()
+
+if done_a or done_b:
+    print(f"Resuming — already done: A={len(done_a)} threads, B={len(done_b)} threads")
 
 # ---------------------------------------------------------------------------
 # Block 2 — Prompt builders
@@ -116,7 +128,7 @@ def build_labeled_prompt(thread_df: pd.DataFrame, thread_preds: pd.DataFrame) ->
 # ---------------------------------------------------------------------------
 
 def summarize(prompt: str) -> str:
-    for _ in range(4):
+    for attempt in range(6):
         try:
             response = client.models.generate_content(
                 model=MODEL,
@@ -126,15 +138,22 @@ def summarize(prompt: str) -> str:
             return response.text.strip()
         except Exception as e:
             if "503" in str(e):
-                print(" [503, reintentando en 30s]", end="", flush=True)
-                time.sleep(30)
+                wait = 60 * (attempt + 1)  # 60s, 120s, 180s… backoff
+                print(f" [503, reintentando en {wait}s]", end="", flush=True)
+                time.sleep(wait)
             else:
                 raise
-    raise RuntimeError("Failed after 4 attempts")
+    raise RuntimeError("Failed after 6 attempts")
 
 
-records_a = []
-records_b = []
+def append_row(path: Path, row: dict) -> None:
+    """Append a single row to a CSV, creating it with headers if needed."""
+    df_new = pd.DataFrame([row])
+    if path.exists():
+        df_new.to_csv(path, mode="a", header=False, index=False)
+    else:
+        df_new.to_csv(path, index=False)
+
 
 for listno in test_threads:
     thread_df    = test_emails[test_emails["listno"] == listno].sort_values("email_num")
@@ -145,39 +164,29 @@ for listno in test_threads:
     print(f"\n[{listno}] {thread_name} ({n_emails} emails)")
 
     # --- Condition A ---
-    print("  Condition A ...", end=" ", flush=True)
-    prompt_a = build_raw_prompt(thread_df)
-    summary_a = summarize(prompt_a)
-    records_a.append({
-        "listno":      listno,
-        "thread_name": thread_name,
-        "n_emails":    n_emails,
-        "summary_a":   summary_a,
-    })
-    print("done")
-    time.sleep(PAUSE_SEC)
+    if listno in done_a:
+        print("  Condition A ... skipped (already done)")
+    else:
+        print("  Condition A ...", end=" ", flush=True)
+        summary_a = summarize(build_raw_prompt(thread_df))
+        append_row(path_a, {
+            "listno": listno, "thread_name": thread_name,
+            "n_emails": n_emails, "summary_a": summary_a,
+        })
+        print("done")
+        time.sleep(PAUSE_SEC)
 
     # --- Condition B ---
-    print("  Condition B ...", end=" ", flush=True)
-    prompt_b = build_labeled_prompt(thread_df, thread_preds)
-    summary_b = summarize(prompt_b)
-    records_b.append({
-        "listno":      listno,
-        "thread_name": thread_name,
-        "n_emails":    n_emails,
-        "summary_b":   summary_b,
-    })
-    print("done")
-    time.sleep(PAUSE_SEC)
+    if listno in done_b:
+        print("  Condition B ... skipped (already done)")
+    else:
+        print("  Condition B ...", end=" ", flush=True)
+        summary_b = summarize(build_labeled_prompt(thread_df, thread_preds))
+        append_row(path_b, {
+            "listno": listno, "thread_name": thread_name,
+            "n_emails": n_emails, "summary_b": summary_b,
+        })
+        print("done")
+        time.sleep(PAUSE_SEC)
 
-# ---------------------------------------------------------------------------
-# Block 4 — Save results
-# ---------------------------------------------------------------------------
-RESULTS.mkdir(exist_ok=True)
-
-pd.DataFrame(records_a).to_csv(RESULTS / "bc3_summaries_condition_a.csv", index=False)
-pd.DataFrame(records_b).to_csv(RESULTS / "bc3_summaries_condition_b.csv", index=False)
-
-print("\nSaved:")
-print(f"  {RESULTS / 'bc3_summaries_condition_a.csv'}")
-print(f"  {RESULTS / 'bc3_summaries_condition_b.csv'}")
+print(f"\nSaved:\n  {path_a}\n  {path_b}")

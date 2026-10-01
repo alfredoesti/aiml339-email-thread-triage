@@ -246,6 +246,28 @@ Agente funcional que clasifica correos reales de la bandeja personal en 5 catego
 
 **Limitación importante a mencionar en el check-in:** con solo 6 hilos de test, las diferencias ROUGE entre A y B son consistentes con la hipótesis pero no estadísticamente significativas. El resultado es prometedor, no concluyente.
 
+---
+
+## Sesión 1 oct 2026 — Mantenimiento pipeline de resumen y confirmación ROUGE
+
+**Contexto:** al intentar re-ejecutar `bc3_summarize.py` para verificar los resultados, se descubrió que el modelo Gemini usado anteriormente (`gemini-1.5-flash`) había sido deprecado por Google. La API devuelve 404 para ese modelo y recomienda migrar a `gemini-3.8-flash`.
+
+**Cambios realizados en `src/bc3_summarize.py`:**
+- Modelo actualizado a `gemini-3.8-flash` (el sucesor actual en el free tier).
+- Añadido **guardado incremental**: cada hilo se guarda en el CSV inmediatamente después de generarse, en lugar de esperar al final. Si el script falla a mitad, el progreso queda a salvo.
+- Añadida **reanudación automática**: al iniciar, el script lee los CSVs existentes y salta los hilos ya presentes. Permite retomar sin repetir trabajo ni perder resultados anteriores.
+- **Backoff progresivo en errores 503**: los reintentos esperan 60s, 120s, 180s… en lugar de siempre 30s. Número de reintentos subido de 4 a 6.
+- Pausa entre llamadas subida de 13s a 30s para respetar el rate limit más estricto de `gemini-3.8-flash` (~2 RPM seguro vs los 5 RPM nominales del plan anterior).
+
+**Resultado:** se verificó que los resúmenes existentes en `results/bc3_summaries_condition_a.csv` y `_condition_b.csv` son de buena calidad (prosa factual, nombres y fechas específicos, sin inventar detalles). Se reejecutó `bc3_rouge.py` y se confirmaron los resultados del check-in anterior:
+- ROUGE-1: A=0.4094, B=0.4309 (+0.0215)
+- ROUGE-2: A=0.1113, B=0.1332 (+0.0219)
+- ROUGE-L: A=0.2200, B=0.2272 (+0.0072)
+
+Las Tareas 5, 6 y 7 quedan definitivamente cerradas. Siguiente paso: Tarea 8 (Gmail Triage Agent).
+
+---
+
 ## 9. Fechas confirmadas del curso
 _Pendiente_
 
