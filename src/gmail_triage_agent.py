@@ -28,6 +28,7 @@ from typing import Optional
 import pandas as pd
 from dotenv import load_dotenv
 from google import genai
+from google.genai import errors as genai_errors
 from googleapiclient.errors import HttpError
 
 from gmail_auth import get_gmail_service
@@ -235,12 +236,22 @@ def classify_thread(gemini_client, ctx: dict) -> str:
 
     If Gemini returns something unexpected, defaults to 'Otro' so the
     agent never crashes and always applies some label.
+    On a 429 rate-limit error, waits 65 s and retries once before giving up.
     """
     prompt = _build_prompt(ctx)
-    response = gemini_client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-    )
+    for attempt in range(2):
+        try:
+            response = gemini_client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
+            )
+            break
+        except (genai_errors.ClientError, genai_errors.ServerError) as exc:
+            if attempt == 0:
+                log.warning(f"Gemini error (attempt 1) — waiting 65s before retry: {exc}")
+                time.sleep(65)
+            else:
+                raise
     raw = response.text.strip().strip("\"'").strip()
 
     # Validate — accept case-insensitive match.
@@ -290,6 +301,9 @@ def run_triage() -> pd.DataFrame:
         log.info("Nothing to triage — inbox is up to date.")
         return pd.DataFrame()
 
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    _wrote_header = LOG_FILE.exists()  # no header if appending to existing log
+
     records = []
     for i, thread_stub in enumerate(threads, 1):
         thread_id = thread_stub["id"]
@@ -300,30 +314,29 @@ def run_triage() -> pd.DataFrame:
             category = classify_thread(gemini_client, ctx)
             apply_label(service, thread_id, label_ids[category])
 
-            log.info(f"  → {category:12s}  |  {ctx['subject'][:60]}")
-            records.append({
+            log.info(f"  -> {category:12s}  |  {ctx['subject'][:60]}")
+            record = {
                 "timestamp": datetime.now().isoformat(timespec="seconds"),
                 "thread_id": thread_id,
                 "subject":   ctx["subject"],
                 "sender":    ctx["sender"],
                 "n_msgs":    ctx["n_msgs"],
                 "category":  category,
-            })
+            }
+            records.append(record)
 
-        except HttpError as exc:
-            log.error(f"Gmail API error on thread {thread_id}: {exc}")
+            # Save immediately so progress survives a crash mid-run.
+            pd.DataFrame([record]).to_csv(
+                LOG_FILE, mode="a", header=not _wrote_header, index=False
+            )
+            _wrote_header = True
+
+        except (HttpError, genai_errors.ClientError, genai_errors.ServerError, OSError) as exc:
+            log.error(f"Error on thread {thread_id}: {exc}")
 
         time.sleep(PAUSE_SEC)
 
     df = pd.DataFrame(records)
-
-    # Append to the running log file.
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    if LOG_FILE.exists():
-        df.to_csv(LOG_FILE, mode="a", header=False, index=False)
-    else:
-        df.to_csv(LOG_FILE, index=False)
-
     log.info(f"Triage complete. {len(df)} thread(s) classified. Log: {LOG_FILE}")
     return df
 
