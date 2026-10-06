@@ -1,16 +1,16 @@
 """
-Parser y preparacion del corpus BC3 (Email Thread Triage - AIML339).
+BC3 corpus parser and preparation (Email Thread Triage - AIML339).
 
-v2: clasificacion MULTI-ETIQUETA a nivel de email (en vez de una sola
-etiqueta por mayoria de voto), mas calculo de acuerdo entre anotadores
-por email, tal y como se decidio el 1 sep 2026 tras revisar los pros/
-contras del enfoque single-label inicial.
+v2: MULTI-LABEL classification at the email level (instead of a single
+label by majority vote), plus a per-email inter-annotator agreement
+score, as decided on 2026-09-01 after reviewing the pros/cons of the
+initial single-label approach.
 
-Lee corpus.xml (emails crudos, con frases numeradas) y annotation.xml
-(resumenes de referencia + etiquetas de acto de habla por frase y
-anotador), los combina, agrega las etiquetas a nivel de email como un
-vector multi-etiqueta (union de lo que marco cualquier anotador), y
-genera un split train/val/test a nivel de HILO completo.
+Reads corpus.xml (raw emails, with numbered sentences) and annotation.xml
+(reference summaries + speech-act labels per sentence and annotator),
+merges them, aggregates the labels at the email level as a multi-label
+vector (the union of what any annotator marked), and generates a
+train/val/test split at the level of the WHOLE thread.
 """
 import xml.etree.ElementTree as ET
 import pandas as pd
@@ -32,10 +32,10 @@ LABEL_NAMES = {
 }
 ALL_LABELS = list(LABEL_NAMES.values()) + ["Informative"]
 
-# Orden de "importancia" para elegir una etiqueta principal secundaria
-# (solo como columna auxiliar): prioriza actos de habla mas accionables
-# para el resumen, segun la intuicion de Carvalho&Cohen / tesis de Ulrich,
-# no por frecuencia estadistica.
+# "Importance" order used to pick a secondary primary label (auxiliary
+# column only): it prioritises the speech acts that are more actionable
+# for summarization, following the intuition of Carvalho & Cohen / the
+# Ulrich thesis, not statistical frequency.
 PRIORITY_ORDER = ["Commit", "Request", "Propose", "Meeting", "Subjective", "Informative"]
 
 
@@ -121,7 +121,7 @@ def parse_annotations(path):
     return pd.DataFrame(label_rows), pd.DataFrame(summary_rows)
 
 
-# ---------- 3. Multi-etiqueta por email (union de anotadores) + acuerdo entre anotadores ----------
+# ---------- 3. Multi-label per email (union of annotators) + inter-annotator agreement ----------
 
 def jaccard(a, b):
     if not a and not b:
@@ -134,12 +134,12 @@ def jaccard(a, b):
 
 def aggregate_email_labels_multilabel(label_df):
     """
-    Para cada (listno, email_num):
-      - por anotador, el conjunto de categorias que uso en ese email
-      - la etiqueta final del email = UNION de esos conjuntos entre
-        todos los anotadores (si nadie marco nada -> {'Informative'})
-      - acuerdo entre anotadores = Jaccard medio entre cada par de
-        anotadores que anotaron ese email (NaN si solo hay 1 anotador)
+    For each (listno, email_num):
+      - per annotator, the set of categories used in that email
+      - the final email label = UNION of those sets across all
+        annotators (if nobody marked anything -> {'Informative'})
+      - inter-annotator agreement = mean Jaccard between each pair of
+        annotators who annotated that email (NaN if only 1 annotator)
     """
     rows = []
     grouped = label_df.groupby(["listno", "email_num"])
@@ -159,7 +159,7 @@ def aggregate_email_labels_multilabel(label_df):
         else:
             agreement = float("nan")
 
-        # etiqueta principal secundaria (solo de referencia), por prioridad de accionabilidad
+        # secondary primary label (reference only), by actionability priority
         primary = next((lbl for lbl in PRIORITY_ORDER if lbl in union_labels), "Informative")
 
         rows.append({
@@ -192,10 +192,10 @@ def main():
     email_df, sentence_df = parse_corpus(CORPUS_XML)
     label_df, summary_df = parse_annotations(ANNOTATION_XML)
 
-    print("=== EDA basica ===")
-    print(f"Hilos (threads): {email_df['listno'].nunique()}")
-    print(f"Emails totales: {len(email_df)}")
-    print(f"Frases totales: {len(sentence_df)}")
+    print("=== Basic EDA ===")
+    print(f"Threads: {email_df['listno'].nunique()}")
+    print(f"Total emails: {len(email_df)}")
+    print(f"Total sentences: {len(sentence_df)}")
     print()
 
     email_labels = aggregate_email_labels_multilabel(label_df)
@@ -204,36 +204,36 @@ def main():
         email_labels[["listno", "email_num", "labels", "n_annotators", "annotator_agreement", "primary_label"]],
         on=["listno", "email_num"], how="left"
     )
-    # Emails sin ninguna fila en label_df (ningun anotador marco nada) -> Informative, 0 anotadores con acto
+    # Emails with no row in label_df (no annotator marked anything) -> Informative, 0 annotators with an act
     merged["labels"] = merged["labels"].apply(lambda x: x if isinstance(x, list) else ["Informative"])
     merged["primary_label"] = merged["primary_label"].fillna("Informative")
     merged["n_annotators"] = merged["n_annotators"].fillna(0).astype(int)
 
-    # columnas binarias multi-etiqueta
+    # multi-label binary columns
     for lbl in ALL_LABELS:
         merged[f"label_{lbl}"] = merged["labels"].apply(lambda ls, lbl=lbl: int(lbl in ls))
 
     merged["label_set_str"] = merged["labels"].apply(lambda ls: ",".join(ls))
     merged["n_labels"] = merged["labels"].apply(len)
 
-    print("=== Distribucion multi-etiqueta (un email puede contar en varias filas) ===")
+    print("=== Multi-label distribution (one email can count in several rows) ===")
     for lbl in ALL_LABELS:
         print(f"{lbl}: {merged[f'label_{lbl}'].sum()}")
     print()
-    print(f"Emails con mas de una etiqueta activa: {(merged['n_labels'] > 1).sum()} / {len(merged)}")
+    print(f"Emails with more than one active label: {(merged['n_labels'] > 1).sum()} / {len(merged)}")
     print()
 
-    print("=== Acuerdo entre anotadores (Jaccard medio por email, solo emails con >=2 anotadores) ===")
+    print("=== Inter-annotator agreement (mean Jaccard per email, only emails with >=2 annotators) ===")
     valid_agreement = merged["annotator_agreement"].dropna()
-    print(f"Emails con >=2 anotadores: {len(valid_agreement)} / {len(merged)}")
-    print(f"Acuerdo medio: {valid_agreement.mean():.3f}")
-    print(f"Acuerdo mediana: {valid_agreement.median():.3f}")
-    print(f"Emails con acuerdo perfecto (=1.0): {(valid_agreement == 1.0).sum()}")
-    print(f"Emails con acuerdo nulo (=0.0): {(valid_agreement == 0.0).sum()}")
+    print(f"Emails with >=2 annotators: {len(valid_agreement)} / {len(merged)}")
+    print(f"Mean agreement: {valid_agreement.mean():.3f}")
+    print(f"Median agreement: {valid_agreement.median():.3f}")
+    print(f"Emails with perfect agreement (=1.0): {(valid_agreement == 1.0).sum()}")
+    print(f"Emails with zero agreement (=0.0): {(valid_agreement == 0.0).sum()}")
     print()
 
     train_ids, val_ids, test_ids = thread_level_split(email_df["listno"].unique())
-    print(f"Hilos -> train: {len(train_ids)}, val: {len(val_ids)}, test: {len(test_ids)}")
+    print(f"Threads -> train: {len(train_ids)}, val: {len(val_ids)}, test: {len(test_ids)}")
 
     def tag_split(listno):
         if listno in train_ids:
@@ -244,13 +244,13 @@ def main():
 
     merged["split"] = merged["listno"].apply(tag_split)
     print()
-    print("=== Emails por split ===")
+    print("=== Emails per split ===")
     print(merged["split"].value_counts())
     print()
-    print("=== Etiqueta principal (secundaria, por prioridad de accionabilidad) x split ===")
+    print("=== Primary label (secondary, by actionability priority) x split ===")
     print(pd.crosstab(merged["primary_label"], merged["split"]))
 
-    # Guardar resultados
+    # Save results
     out_cols = ["listno", "thread_name", "email_num", "received", "from", "to", "subject",
                 "body", "n_sentences", "split", "n_annotators", "annotator_agreement",
                 "primary_label", "label_set_str", "n_labels"] + [f"label_{l}" for l in ALL_LABELS]
@@ -260,7 +260,7 @@ def main():
     with open("../data/bc3_split.json", "w") as f:
         json.dump({"train": train_ids, "val": val_ids, "test": test_ids}, f, indent=2)
 
-    print("\nGuardado: bc3_emails_labeled.csv (multi-etiqueta), bc3_sentences.csv, bc3_summaries.csv, bc3_split.json")
+    print("\nSaved: bc3_emails_labeled.csv (multi-label), bc3_sentences.csv, bc3_summaries.csv, bc3_split.json")
 
 
 if __name__ == "__main__":
