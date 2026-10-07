@@ -139,7 +139,7 @@ def summarize(prompt: str) -> str:
         except Exception as e:
             if "503" in str(e):
                 wait = 60 * (attempt + 1)  # 60s, 120s, 180s… backoff
-                print(f" [503, reintentando en {wait}s]", end="", flush=True)
+                print(f" [503, retrying in {wait}s]", end="", flush=True)
                 time.sleep(wait)
             else:
                 raise

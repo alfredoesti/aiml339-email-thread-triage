@@ -15,7 +15,7 @@ Usage
 Requirements
 ------------
 Place credentials.json (downloaded from Google Cloud Console) at the repo root.
-See README or docs/bitacora-proyecto.md for setup instructions.
+See README.md for setup instructions.
 """
 
 from pathlib import Path
@@ -24,7 +24,8 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-# We only need read + label access — no send, no delete.
+# Read access plus label management. gmail.modify is needed to add labels
+# to threads; the agent never sends or deletes email.
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.labels",

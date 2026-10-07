@@ -10,13 +10,13 @@ Usage
 
 Expected output
 ---------------
-    Created  Triage/Universidad
-    Created  Triage/Trabajo
-    Created  Triage/Personal
-    Created  Triage/Newsletters
-    Created  Triage/Spam
-    Created  Triage/Otro
-    Done — 6 label(s) ready.
+    Created         Triage/University
+    Created         Triage/Work
+    Created         Triage/Personal
+    Created         Triage/Spam
+    Created         Triage/Other
+
+    Done — 5 label(s) ready (5 newly created).
 """
 
 import sys
@@ -26,9 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from gmail_auth import get_gmail_service
-
-LABEL_PREFIX = "Triage"
-CATEGORIES   = ["Universidad", "Trabajo", "Personal", "Spam", "Otro"]
+from gmail_triage_agent import CATEGORIES, LABEL_PREFIX
 
 
 def main():

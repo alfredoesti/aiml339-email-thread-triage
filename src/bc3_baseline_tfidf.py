@@ -7,9 +7,11 @@ categories + Informative (multi-label), using the thread-level split
 already generated in bc3_split.json / bc3_emails_labeled.csv.
 
 This baseline is the comparison point for the BERT+LoRA classifier
-(Task 3). It must use exactly the same label columns and the same
+(notebooks/bc3_bert_lora.ipynb). It must use exactly the same label columns and the same
 split so that the comparison is valid.
 """
+from pathlib import Path
+
 import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -20,7 +22,9 @@ from sklearn.metrics import (
     classification_report, hamming_loss
 )
 
-DATA_PATH = "../data/bc3_emails_labeled.csv"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DATA_PATH = REPO_ROOT / "data" / "bc3_emails_labeled.csv"
+RESULTS_PATH = REPO_ROOT / "results" / "bc3_baseline_test_predictions.csv"
 
 ALL_LABELS = ["Request", "Propose", "Commit", "Meeting", "Subjective", "Informative"]
 LABEL_COLS = [f"label_{l}" for l in ALL_LABELS]
@@ -88,7 +92,7 @@ def main():
     for i, lbl in enumerate(ALL_LABELS):
         pred_df[f"pred_{lbl}"] = y_pred_test[:, i]
         pred_df[f"true_{lbl}"] = y_test[:, i]
-    pred_df.to_csv("../results/bc3_baseline_test_predictions.csv", index=False)
+    pred_df.to_csv(RESULTS_PATH, index=False)
     print("Saved: bc3_baseline_test_predictions.csv")
 
 

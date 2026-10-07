@@ -1,4 +1,4 @@
-# Entornos virtuales
+# Virtual environments
 venv/
 .venv/
 env/
@@ -8,7 +8,7 @@ __pycache__/
 # Jupyter / Colab
 .ipynb_checkpoints/
 
-# Modelos entrenados y checkpoints (pesados, no van al repo)
+# Trained models and checkpoints (large, not versioned)
 *.pt
 *.pth
 *.bin
@@ -16,23 +16,23 @@ __pycache__/
 checkpoints/
 lora_weights/
 
-# Datos crudos originales de BC3 (no redistribuir XML crudo en el repo)
+# Original raw BC3 XML files (only the processed CSVs are versioned)
 data/raw/
 
-# Credenciales / API keys — NUNCA subir esto
+# Credentials / API keys - never commit these
 .env
 *api_key*
 secrets.json
 credentials.json
 token.json
 
-# Gmail triage — logs y estado cambian en cada ejecucion, no van al repo
+# Gmail triage demo - logs and state contain personal inbox data
 results/gmail_triage/
 
-# Sistema operativo
+# Operating system
 .DS_Store
 Thumbs.db
 
-# Editor
+# Editors
 .vscode/
 .idea/

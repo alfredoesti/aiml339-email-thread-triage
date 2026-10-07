@@ -4,17 +4,17 @@ gmail_triage_agent.py
 Core logic for the Gmail Triage Agent.
 
 For each unprocessed thread in the Inbox, uses Gemini to classify it into
-one of six categories and applies the corresponding Gmail label:
+one of five categories and applies the corresponding Gmail label:
 
-    Triage/Universidad  — academic emails (university, courses, professors)
-    Triage/Trabajo      — work or internship-related emails
-    Triage/Personal     — friends, family, personal matters
-    Triage/Newsletters  — newsletters, subscriptions, digests
-    Triage/Spam         — unwanted email that isn't worth blocking
-    Triage/Otro         — anything that doesn't fit the above
+    Triage/University  — academic emails (university, courses, professors)
+    Triage/Work        — work or internship-related emails
+    Triage/Personal    — friends, family, personal matters, subscribed news
+    Triage/Spam        — unsolicited or promotional email
+    Triage/Other       — anything that doesn't fit the above
 
-Results are appended to results/gmail_triage_log.csv so you can review
-what the agent did and spot any misclassifications.
+Results are appended to results/gmail_triage/triage_log.csv (gitignored,
+since it contains personal inbox data) so you can review what the agent
+did and spot any misclassifications.
 """
 
 import os
@@ -46,28 +46,28 @@ PAUSE_SEC         = 30                   # gemini-3.8-flash free tier is stricte
 FIRST_RUN_LIMIT   = 10                  # threads to process on the very first run
 STATE_FILE        = RESULTS_DIR / "last_run.txt"  # stores the timestamp of the last run
 
-# The six categories the agent can assign.
+# The five categories the agent can assign.
 CATEGORIES = [
-    "Universidad",
-    "Trabajo",
+    "University",
+    "Work",
     "Personal",
     "Spam",
-    "Otro",
+    "Other",
 ]
 
 LABEL_PREFIX = "Triage"
 
 # One-line description of each category, included in the Gemini prompt.
 CATEGORY_DESCRIPTIONS = {
-    "Universidad": "university, courses, professors, academic deadlines, student admin",
-    "Trabajo":     "job, internship, work projects, colleagues, recruiters",
+    "University":  "university, courses, professors, academic deadlines, student admin",
+    "Work":        "job, internship, work projects, colleagues, recruiters",
     "Personal":    "friends, family, personal matters, or important news from explicitly "
                    "subscribed sources such as Bloomberg financial newsletters",
     "Spam":        "any unsolicited or promotional email: marketing, discounts, food delivery "
                    "(Uber Eats, DoorDash), restaurants (Chipotle, Subway, Shake Shack), "
                    "entertainment/events (Ticketmaster, Hot Wheels), retail offers, or any "
                    "email the user did not explicitly request",
-    "Otro":        "transactional emails (bank fee updates, exchange delistings, account "
+    "Other":       "transactional emails (bank fee updates, exchange delistings, account "
                    "notices) or anything that does not clearly fit the above categories",
 }
 
@@ -234,7 +234,7 @@ def _build_prompt(ctx: dict) -> str:
 def classify_thread(gemini_client, ctx: dict) -> str:
     """Ask Gemini to classify the thread. Returns the category name.
 
-    If Gemini returns something unexpected, defaults to 'Otro' so the
+    If Gemini returns something unexpected, defaults to 'Other' so the
     agent never crashes and always applies some label.
     On a 429 rate-limit error, waits 65 s and retries once before giving up.
     """
@@ -259,8 +259,8 @@ def classify_thread(gemini_client, ctx: dict) -> str:
         if cat.lower() == raw.lower():
             return cat
 
-    log.warning(f"Unexpected Gemini response '{raw}' — defaulting to 'Otro'")
-    return "Otro"
+    log.warning(f"Unexpected Gemini response '{raw}' — defaulting to 'Other'")
+    return "Other"
 
 
 # ---------------------------------------------------------------------------

@@ -1,10 +1,10 @@
 """
 BC3 corpus parser and preparation (Email Thread Triage - AIML339).
 
-v2: MULTI-LABEL classification at the email level (instead of a single
+Builds a MULTI-LABEL target at the email level (instead of a single
 label by majority vote), plus a per-email inter-annotator agreement
-score, as decided on 2026-09-01 after reviewing the pros/cons of the
-initial single-label approach.
+score. This replaces the single-label formulation of the original
+project proposal.
 
 Reads corpus.xml (raw emails, with numbered sentences) and annotation.xml
 (reference summaries + speech-act labels per sentence and annotator),
@@ -13,14 +13,17 @@ vector (the union of what any annotator marked), and generates a
 train/val/test split at the level of the WHOLE thread.
 """
 import xml.etree.ElementTree as ET
+from pathlib import Path
 import pandas as pd
 import random
 import json
 from collections import Counter
 from itertools import combinations
 
-CORPUS_XML = "../data/raw/corpus.xml"
-ANNOTATION_XML = "../data/raw/annotation.xml"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = REPO_ROOT / "data"
+CORPUS_XML = DATA_DIR / "raw" / "corpus.xml"
+ANNOTATION_XML = DATA_DIR / "raw" / "annotation.xml"
 
 SPEECH_ACT_TAGS = ["req", "prop", "cmt", "meet", "subj"]
 LABEL_NAMES = {
@@ -254,10 +257,10 @@ def main():
     out_cols = ["listno", "thread_name", "email_num", "received", "from", "to", "subject",
                 "body", "n_sentences", "split", "n_annotators", "annotator_agreement",
                 "primary_label", "label_set_str", "n_labels"] + [f"label_{l}" for l in ALL_LABELS]
-    merged[out_cols].to_csv("../data/bc3_emails_labeled.csv", index=False)
-    sentence_df.to_csv("../data/bc3_sentences.csv", index=False)
-    summary_df.to_csv("../data/bc3_summaries.csv", index=False)
-    with open("../data/bc3_split.json", "w") as f:
+    merged[out_cols].to_csv(DATA_DIR / "bc3_emails_labeled.csv", index=False)
+    sentence_df.to_csv(DATA_DIR / "bc3_sentences.csv", index=False)
+    summary_df.to_csv(DATA_DIR / "bc3_summaries.csv", index=False)
+    with open(DATA_DIR / "bc3_split.json", "w") as f:
         json.dump({"train": train_ids, "val": val_ids, "test": test_ids}, f, indent=2)
 
     print("\nSaved: bc3_emails_labeled.csv (multi-label), bc3_sentences.csv, bc3_summaries.csv, bc3_split.json")
