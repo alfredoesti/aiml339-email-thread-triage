@@ -38,10 +38,12 @@ summarizing the raw text directly?
 │   ├── bc3_baseline_tfidf.py          TF-IDF + OneVsRest baseline (train + evaluation)
 │   ├── bc3_summarize.py               LLM summaries, Conditions A and B (Gemini API)
 │   ├── bc3_rouge.py                   ROUGE evaluation of Conditions A and B
+│   ├── stats_tests.py                 Statistical tests (Wilcoxon, Holm correction, effect sizes)
 │   ├── gmail_auth.py                  Gmail OAuth helper (demo)
 │   └── gmail_triage_agent.py          Gmail triage agent (demo)
 ├── notebooks/
-│   ├── bc3_bert_lora.ipynb            BERT+LoRA training and test evaluation (Google Colab, T4 GPU)
+│   ├── bc3_bert_lora.ipynb            BERT+LoRA training and test evaluation, seed 42 (Google Colab, T4 GPU)
+│   ├── bc3_bert_lora_seeds.ipynb      Same configuration repeated over 30 seeds (Google Colab, T4 GPU)
 │   ├── bc3_comparison.ipynb           Baseline vs BERT+LoRA metrics and per-label F1 figure
 │   ├── bc3_summarization.ipynb        Side-by-side view of the A and B summaries
 │   ├── bc3_rouge.ipynb                ROUGE tables, figure and analysis
@@ -108,12 +110,14 @@ Run the commands from the repository root.
 |------|--------------------|--------|
 | 1. Baseline | `python src/bc3_baseline_tfidf.py` | `results/bc3_baseline_test_predictions.csv` |
 | 2. BERT+LoRA | `notebooks/bc3_bert_lora.ipynb` on Colab (upload `data/bc3_emails_labeled.csv` to `/content/`, GPU runtime) | `results/bc3_bert_lora_test_predictions.csv` |
-| 3. Classifier comparison | `notebooks/bc3_comparison.ipynb` | metrics table, `results/bc3_comparison_f1.png` |
-| 4. Summaries A and B | `python src/bc3_summarize.py` | `results/bc3_summaries_condition_a.csv`, `results/bc3_summaries_condition_b.csv` |
-| 5. ROUGE | `python src/bc3_rouge.py`, then `notebooks/bc3_rouge.ipynb` | `results/bc3_rouge_scores.csv`, `results/bc3_rouge_comparison.png` |
+| 3. Repeated runs | `notebooks/bc3_bert_lora_seeds.ipynb` on Colab (GPU runtime; data is downloaded from this repository) | `results/bc3_bert_lora_seed_runs.csv`, `results/bc3_bert_lora_seed_curves.csv`, `results/bc3_bert_lora_seed_predictions.csv`, `results/bc3_bert_lora_seed_runs.png` |
+| 4. Classifier comparison (seed 42) | `notebooks/bc3_comparison.ipynb` | metrics table, `results/bc3_comparison_f1.png` |
+| 5. Summaries A and B | `python src/bc3_summarize.py` | `results/bc3_summaries_condition_a.csv`, `results/bc3_summaries_condition_b.csv` |
+| 6. ROUGE | `python src/bc3_rouge.py`, then `notebooks/bc3_rouge.ipynb` | `results/bc3_rouge_scores.csv`, `results/bc3_rouge_comparison.png` |
+| 7. Statistical tests | `python src/stats_tests.py` | `results/stats_tests.csv` |
 
 `bc3_summarize.py` skips threads that already exist in the output CSVs, so delete them first to
-regenerate the summaries. Steps 3 and 5 only read the files in `results/` and make no API calls.
+regenerate the summaries. Steps 4, 6 (notebook) and 7 only read the files in `results/` and make no API calls.
 
 ### Configurations behind the reported results
 
@@ -136,9 +140,10 @@ ngram_range=(1, 2), min_df=2, stop_words="english")` fitted on train only;
 | Scheduler | Linear with 10% warmup |
 | Loss | `BCEWithLogitsLoss` with per-label `pos_weight` (train set) |
 | Decision threshold | 0.5 |
-| Checkpoint selection | Best validation micro F1 (epoch 5, 0.684) |
-| Seed | 42 (`random`, `numpy`, `torch`) |
-| Hardware | Google Colab, NVIDIA T4 GPU |
+| Checkpoint selection | Best validation micro F1 (seed 42: epoch 5, 0.684) |
+| Seeds | 42 in `bc3_bert_lora.ipynb`; 0–29 in `bc3_bert_lora_seeds.ipynb` (`random`, `numpy`, `torch`, DataLoader generator) |
+| Hardware | Google Colab, NVIDIA Tesla T4 GPU |
+| Training time | 40.8 ± 0.3 s per run (first to last training iteration, 30 runs) |
 
 **Summarization** (`src/bc3_summarize.py`): `gemini-3.8-flash` (free tier), default sampling
 parameters, one summary per thread and condition. The system prompt is the same in both conditions
@@ -150,12 +155,16 @@ reference summary and keeping the maximum across annotators.
 
 ### Main results (test set)
 
-Classification (37 emails, 6 threads, single run with seed 42; higher is better except Hamming loss):
+Classification (37 test emails, 6 threads; higher is better except Hamming loss). The baseline is
+deterministic (re-running it gives identical predictions). BERT+LoRA is reported as mean ± standard
+deviation over 30 seeds (0–29), and also for the single seed-42 run used to produce the Condition B
+labels:
 
 | Model | Micro F1 | Macro F1 | Hamming loss |
 |-------|----------|----------|--------------|
 | TF-IDF baseline | 0.560 | 0.410 | 0.347 |
-| BERT+LoRA | 0.637 | 0.525 | 0.369 |
+| BERT+LoRA, 30 seeds | 0.596 ± 0.030 | 0.483 ± 0.029 | 0.389 ± 0.035 |
+| BERT+LoRA, seed 42 | 0.637 | 0.525 | 0.369 |
 
 Summarization (mean ROUGE F1 over the 6 test threads, one generation per thread and condition):
 
@@ -165,9 +174,26 @@ Summarization (mean ROUGE F1 over the 6 test threads, one generation per thread 
 | ROUGE-2 | 0.1112 | 0.1332 | +0.0219 |
 | ROUGE-L | 0.2200 | 0.2272 | +0.0072 |
 
-Per-thread scores are in `results/bc3_rouge_scores.csv`. All numbers come from a single run
-(classifiers) and a single generation per condition (summaries); see the report for the
-discussion of this limitation.
+Per-thread scores are in `results/bc3_rouge_scores.csv`. The summaries were generated once per
+thread and condition (free-tier API limits), using the seed-42 classifier predictions.
+
+### Statistical tests
+
+`src/stats_tests.py` (results in `results/stats_tests.csv`), two-sided Wilcoxon signed-rank tests,
+Holm correction within each family of three metrics, alpha = 0.05, rank-biserial effect size:
+
+| Comparison | Metric | p (Holm) | Effect size | Significant |
+|------------|--------|----------|-------------|-------------|
+| BERT+LoRA (30 seeds) vs baseline | Micro F1 | < 0.001 | 0.91 | yes (BERT better, 27/30 seeds) |
+| | Macro F1 | < 0.001 | 1.00 | yes (BERT better, 30/30 seeds) |
+| | Hamming loss | < 0.001 | 0.89 | yes (BERT **worse**, 26/30 seeds) |
+| Condition B vs A (6 threads) | ROUGE-1 | 0.188 | 0.81 | no |
+| | ROUGE-2 | 0.188 | 0.90 | no |
+| | ROUGE-L | 0.313 | 0.52 | no |
+
+The classifier tests capture training randomness on the fixed test set, not the sampling of the 37
+test emails. With only 6 test threads, the smallest p-value an exact two-sided Wilcoxon test can
+reach is 0.031, so the ROUGE comparison has very low statistical power.
 
 ## Gmail triage demo (optional)
 

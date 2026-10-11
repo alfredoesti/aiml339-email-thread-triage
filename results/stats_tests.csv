@@ -1,0 +1,7 @@
+comparison,metric,higher_is_better,n,a_name,a_value,a_std,b_name,b_value,b_std,mean_diff_b_minus_a,n_b_better,test,statistic,p_value,effect_size_rank_biserial,p_holm,significant_holm
+BERT+LoRA (30 seeds) vs TF-IDF baseline,micro_f1,True,30,baseline,0.56,0,bert_lora,0.596202,0.0299547,0.0362017,27,one-sample Wilcoxon signed-rank (two-sided),22,9.98378e-07,0.905376,1.99676e-06,True
+BERT+LoRA (30 seeds) vs TF-IDF baseline,macro_f1,True,30,baseline,0.410459,0,bert_lora,0.483016,0.02916,0.072557,30,one-sample Wilcoxon signed-rank (two-sided),0,1.86265e-09,1,5.58794e-09,True
+BERT+LoRA (30 seeds) vs TF-IDF baseline,hamming_loss,False,30,baseline,0.346847,0,bert_lora,0.389039,0.0351412,0.0421922,4,one-sample Wilcoxon signed-rank (two-sided),25,1.96001e-05,0.892473,1.96001e-05,True
+Condition B vs Condition A (6 test threads),rouge1,True,6,condition_a,0.409433,0.0451105,condition_b,0.4309,0.0514347,0.0214667,5,"paired Wilcoxon signed-rank, exact (two-sided)",2,0.09375,0.809524,0.1875,False
+Condition B vs Condition A (6 test threads),rouge2,True,6,condition_a,0.11125,0.0398569,condition_b,0.133167,0.0416584,0.0219167,5,"paired Wilcoxon signed-rank, exact (two-sided)",1,0.0625,0.904762,0.1875,False
+Condition B vs Condition A (6 test threads),rougeL,True,6,condition_a,0.22005,0.0349309,condition_b,0.22725,0.0286847,0.0072,5,"paired Wilcoxon signed-rank, exact (two-sided)",5,0.3125,0.52381,0.3125,False
