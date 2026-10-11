@@ -15,7 +15,7 @@ summarizing the raw text directly?
    the BC3 emails do). Two classifiers are compared on the same thread-level split:
    - Baseline: TF-IDF + `OneVsRestClassifier(LogisticRegression)`.
    - Main model: `bert-base-uncased` fine-tuned with LoRA, sigmoid outputs and class-weighted BCE loss.
-2. **Contextual summarization** with an LLM (`gemini-3.8-flash`) under two conditions that share the
+2. **Contextual summarization** with an LLM (`gemini-3.5-flash`) under two conditions that share the
    same system prompt:
    - Condition A: raw thread text only.
    - Condition B: raw thread text plus the labels predicted by BERT+LoRA for each email.
@@ -145,7 +145,10 @@ ngram_range=(1, 2), min_df=2, stop_words="english")` fitted on train only;
 | Hardware | Google Colab, NVIDIA Tesla T4 GPU |
 | Training time | 40.8 ± 0.3 s per run (first to last training iteration, 30 runs) |
 
-**Summarization** (`src/bc3_summarize.py`): `gemini-3.8-flash` (free tier), default sampling
+**Summarization** (`src/bc3_summarize.py`): the reported summaries in `results/` were generated on
+2026-09-17 with `gemini-3.5-flash` (free tier), A and B in the same run. The script was later switched to
+`gemini-3.8-flash`, but the summaries were not regenerated (the script
+skips threads that already exist). Default sampling
 parameters, one summary per thread and condition. The system prompt is the same in both conditions
 (`SYSTEM_INSTRUCTION`); Condition B only adds the predicted labels to each email header plus a
 short explanation of what each label means.
